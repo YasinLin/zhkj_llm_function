@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zhkj_llm_function"
+version = "0.2.0"
+description = "基于 tinyagent-py 的 DeclareAgent 插件框架：@agent_def 声明 + Pydantic 类型反射 + 统一返回结构"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["agent", "llm", "tinyagent", "pydantic", "framework", "plugin"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dependencies = [
+    "tinyagent-py>=0.1.20",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools]
+packages = ["zhkj_llm_function"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
