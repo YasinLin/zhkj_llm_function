@@ -38,6 +38,51 @@ python -m build            # 产出 dist/*.whl 与 *.tar.gz
 pip install dist/zhkj_llm_function-0.2.0-py3-none-any.whl
 ```
 
+## 发布到包索引
+
+```bash
+# 1. 准备打包工具
+pip install build twine
+
+# 2. 清理并构建（产出 dist/*.whl 与 dist/*.tar.gz）
+rm -rf dist build *.egg-info
+python -m build
+
+# 3. 校验元数据（必须 PASSED）
+python -m twine check dist/*
+
+# 4. 上传
+python -m twine upload dist/*                        # PyPI 正式
+python -m twine upload --repository testpypi dist/*   # TestPyPI 试发布
+python -m twine upload --repository nexus dist/*      # 内部源（需先配置 ~/.pypirc）
+```
+
+凭据用环境变量 `TWINE_USERNAME` / `TWINE_PASSWORD`，或 `~/.pypirc`：
+
+```ini
+[distutils]
+index-servers =
+    pypi
+    nexus
+
+[pypi]
+username = __token__
+password = pypi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+[nexus]
+repository = https://nexus.example.com/repository/pypi-hosted/
+username = your-user
+password = your-token
+```
+
+发布后使用方直接安装：
+
+```bash
+pip install zhkj_llm_function
+```
+
+首次发布前需先在目标索引占位注册同名项目。`dist/` 已在 `.gitignore` 中，不入库。
+
 ## 快速开始
 
 ### 1. 写插件
