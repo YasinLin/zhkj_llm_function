@@ -82,8 +82,9 @@ class CryptoSignalPlugin(BaseAgentGroup):
         业务规则：
         1. 数据纪律：
            1) 所有数值指标（动量、波动率、回撤、RSI、相对强弱）必须来自工具 compute_market_stats 的返回值，禁止自己计算或臆造数字；
-           2) 若 payload.prices 不足 15 个数据点，视为历史数据不足：仍需调用工具（若可用）确认可用字段，然后 signal=neutral、confidence≤0.3、key_drivers 为空、expected_move_pct 填 "无法评估"，并在 error_message 写明「历史价格数据不足」；
-           3) 若 payload.news 为空且提供了 fetch_recent_news 工具，必须先调用一次获取新闻再判断；工具不可用或失败时，signal=neutral，并在 error_message 写明「缺少新闻输入且无法获取新闻」。
+           2) 调用 compute_market_stats 时必须传入 prices：优先用 payload.prices；若 payload.prices 为空，先调用 fetch_daily_candles（失败时用 fetch_price_history）取历史日线，把 close 序列作为 prices 传入；
+           3) 若最终可用价格数据点不足 15 个，视为历史数据不足：仍需调用工具确认可用字段，然后 signal=neutral、confidence≤0.3、key_drivers 为空、expected_move_pct 填 "无法评估"，并在 error_message 写明「历史价格数据不足」；
+           4) 若 payload.news 为空，必须先调用 fetch_recent_news 获取新闻再判断；工具不可用或失败时，signal=neutral，并在 error_message 写明「缺少新闻输入且无法获取新闻」。
         2. 新闻处理：
            1) 只使用 payload.news 与工具返回的新闻，禁止引入未提供的新闻、传闻或「市场普遍认为」；
            2) 每条被采用的新闻必须在 key_drivers 中引用其标题或摘要要点，不得写「情绪偏暖」这类无出处结论；

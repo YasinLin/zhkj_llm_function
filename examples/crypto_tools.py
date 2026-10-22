@@ -1,16 +1,23 @@
 """加密货币信号分析用的外部工具（调用时通过 tools= 传入，插件内不定义工具）。
 
 - compute_market_stats：确定性统计，动量/波动率/回撤/RSI/相对强弱，**不让模型做算术**
-- fetch_daily_candles：可选，Binance 公开 K 线接口（无需 key，网络不通时抛错）
-- fetch_recent_news：可选，CoinDesk RSS（网络不通时抛错）
+- fetch_daily_candles：历史日线（真实行情），Binance 公开接口，多源自动容错
+- fetch_price_history：历史日线（真实行情），CoinGecko 公开接口，作为备选源
+- fetch_recent_news：最近新闻（真实接口），Binance 资讯 + CoinDesk RSS + Cointelegraph RSS 聚合
+
+所有联网工具失败时抛异常，由框架包装成 ToolExecutionError，插件规则会据此降级为 neutral。
 """
 
 import json
 import math
+import re
 import urllib.parse
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
+
+USER_AGENT = "zhkj-llm-function/1.0"
+REQUEST_TIMEOUT = 12.0
 
 # --------------------------------------------------------------- 确定性统计
 
@@ -160,75 +167,280 @@ def compute_market_stats(
     }
 
 
-# --------------------------------------------------------------- 可选：联网取数
+# --------------------------------------------------------------- 联网取数（真实接口）
+
+BINANCE_HOSTS = ("https://api.binance.com", "https://api.binance.us", "https://api1.binance.com")
+
+# 常见交易对 -> CoinGecko coin id
+COINGECKO_IDS = {
+    "BTC": "bitcoin",
+    "ETH": "ethereum",
+    "SOL": "solana",
+    "BNB": "binancecoin",
+    "XRP": "ripple",
+    "ADA": "cardano",
+    "DOGE": "dogecoin",
+    "LTC": "litecoin",
+    "TON": "the-open-network",
+    "AVAX": "avalanche-2",
+    "DOT": "polkadot",
+    "MATIC": "matic-network",
+    "TRX": "tron",
+    "LINK": "chainlink",
+    "BCH": "bitcoin-cash",
+}
+
+
+def _get(url: str, timeout: float = REQUEST_TIMEOUT) -> bytes:
+    """GET 请求。"""
+    request = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT, "Accept": "*/*"}
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read()
+
+
+def _base_asset(symbol: str) -> str:
+    """BTCUSDT -> BTC；SOLUSDT -> SOL。"""
+    cleaned = re.sub(r"[^A-Z0-9]", "", symbol.upper())
+    for quote in ("USDT", "USDC", "BUSD", "USD", "BTC", "ETH"):
+        if cleaned.endswith(quote) and len(cleaned) > len(quote):
+            return cleaned[: -len(quote)]
+    return cleaned
+
+
+def _fetch_binance_candles(symbol: str, limit: int) -> List[Dict[str, Any]]:
+    query = urllib.parse.urlencode(
+        {
+            "symbol": symbol.upper(),
+            "interval": "1d",
+            "limit": max(20, min(int(limit), 500)),
+        }
+    )
+    last_error: Optional[Exception] = None
+    for host in BINANCE_HOSTS:
+        try:
+            rows = json.loads(_get(host + "/api/v3/klines?" + query).decode("utf-8"))
+        except Exception as exc:  # noqa: BLE001 - 依次尝试备用域名
+            last_error = exc
+            continue
+        candles = []
+        for row in rows:
+            candles.append(
+                {
+                    "date": str(date.fromtimestamp(int(row[0]) / 1000)),
+                    "open": float(row[1]),
+                    "high": float(row[2]),
+                    "low": float(row[3]),
+                    "close": float(row[4]),
+                    "volume": float(row[5]),
+                }
+            )
+        if candles:
+            return candles
+    raise RuntimeError("Binance K 线接口不可用: {0}".format(last_error))
+
+
+def _fetch_coingecko_history(symbol: str, limit: int) -> List[Dict[str, Any]]:
+    asset = _base_asset(symbol)
+    coin_id = COINGECKO_IDS.get(asset)
+    if not coin_id:
+        query = urllib.parse.urlencode({"query": asset})
+        data = json.loads(
+            _get("https://api.coingecko.com/api/v3/search?" + query).decode("utf-8")
+        )
+        coins = data.get("coins") or []
+        if not coins:
+            raise RuntimeError("CoinGecko 未找到资产: {0}".format(asset))
+        coin_id = coins[0]["id"]
+
+    days = max(1, min(int(limit), 365))
+    query = urllib.parse.urlencode(
+        {"vs_currency": "usd", "days": days, "interval": "daily"}
+    )
+    data = json.loads(
+        _get(
+            "https://api.coingecko.com/api/v3/coins/{0}/market_chart?".format(coin_id) + query
+        ).decode("utf-8")
+    )
+    prices = data.get("prices") or []
+    if not prices:
+        raise RuntimeError("CoinGecko 未返回价格序列: {0}".format(asset))
+
+    candles = []
+    for timestamp, price in prices:
+        candles.append(
+            {
+                "date": str(date.fromtimestamp(timestamp / 1000)),
+                "close": float(price),
+            }
+        )
+    return candles[-int(limit) :]
 
 
 def fetch_daily_candles(symbol: str, limit: int = 90) -> List[Dict[str, Any]]:
-    """拉取日线收盘价（Binance 公开接口，无需 key）。
+    """拉取交易对最近的历史日线（真实行情）。
+
+    数据源：Binance 公开 K 线接口（主），失败时自动切换备用域名。
+
+    参数：
+    - symbol: 交易对，例如 BTCUSDT
+    - limit: 拉取根数（20~500）
+    """
+    return _fetch_binance_candles(symbol, limit)
+
+
+def fetch_price_history(symbol: str, limit: int = 90) -> List[Dict[str, Any]]:
+    """拉取交易对最近的历史日线（真实行情，备选源）。
+
+    数据源：CoinGecko market_chart 接口（当 Binance 不可用时使用）。
 
     参数：
     - symbol: 交易对，例如 BTCUSDT
     - limit: 拉取根数
     """
-    query = urllib.parse.urlencode(
-        {"symbol": symbol.upper(), "interval": "1d", "limit": max(20, min(int(limit), 500))}
+    return _fetch_coingecko_history(symbol, limit)
+
+
+def _fetch_binance_news(limit: int) -> List[Dict[str, Any]]:
+    """Binance 资讯（JSON 接口，交易所公告）。"""
+    page_size = max(1, min(int(limit), 10))  # 接口对 pageSize 有上限
+    query = urllib.parse.urlencode({"type": 1, "pageNo": 1, "pageSize": page_size})
+    data = json.loads(
+        _get(
+            "https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?" + query
+        ).decode("utf-8")
     )
-    url = "https://api.binance.com/api/v3/klines?" + query
-    request = urllib.request.Request(url, headers={"User-Agent": "zhkj-llm-function/1.0"})
-    with urllib.request.urlopen(request, timeout=10) as response:
-        rows = json.loads(response.read().decode("utf-8"))
+    items = []
+    for row in (data.get("data") or {}).get("catalogs") or []:
+        for article in row.get("articles") or []:
+            body = (article.get("title") or "") + " " + (article.get("description") or "")
+            published = str(article.get("releaseDate") or "")
+            if published.isdigit():
+                published = datetime.fromtimestamp(int(published) / 1000).strftime("%Y-%m-%d")
+            items.append(
+                {
+                    "title": (article.get("title") or "").strip(),
+                    "summary": re.sub(r"<[^>]+>", " ", article.get("description") or "").strip()[:400],
+                    "source": "Binance",
+                    "published_at": published,
+                    "url": article.get("url") or "",
+                }
+            )
+            if len(items) >= limit:
+                return items
+    return items
 
-    candles = []
-    for row in rows:
-        candles.append(
-            {
-                "date": str(date.fromtimestamp(int(row[0]) / 1000)),
-                "open": float(row[1]),
-                "high": float(row[2]),
-                "low": float(row[3]),
-                "close": float(row[4]),
-                "volume": float(row[5]),
-            }
-        )
-    return candles
 
-
-def fetch_recent_news(symbol: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """拉取最近相关新闻（CoinDesk RSS，无需 key）。
-
-    参数：
-    - symbol: 交易对，例如 BTCUSDT（用于过滤标题）
-    - limit: 返回条数
-    """
-    url = "https://www.coindesk.com/arc/outboundfeeds/rss/"
-    request = urllib.request.Request(url, headers={"User-Agent": "zhkj-llm-function/1.0"})
-    with urllib.request.urlopen(request, timeout=10) as response:
-        raw = response.read().decode("utf-8", errors="replace")
-
+def _fetch_rss_news(url: str, source: str, limit: int) -> List[Dict[str, Any]]:
+    """RSS 资讯（CoinDesk / Cointelegraph）。"""
     import xml.etree.ElementTree as ET
 
+    raw = _get(url).decode("utf-8", errors="replace")
     root = ET.fromstring(raw)
-    keyword = symbol.replace("USDT", "").upper()
     items = []
-    for item in root.iter("item"):
-        title = (item.findtext("title") or "").strip()
-        description = (item.findtext("description") or "").strip()
-        link = (item.findtext("link") or "").strip()
-        published = (item.findtext("pubDate") or "").strip()
-        if keyword and keyword not in title.upper() and keyword not in description.upper():
-            continue
+    for node in root.iter("item"):
+        title = (node.findtext("title") or "").strip()
+        description = re.sub(r"<[^>]+>", " ", node.findtext("description") or "").strip()
+        link = (node.findtext("link") or "").strip()
+        published = (node.findtext("pubDate") or "").strip()
         items.append(
             {
                 "title": title,
-                "summary": description,
-                "source": "CoinDesk",
+                "summary": description[:400],
+                "source": source,
                 "published_at": published,
                 "url": link,
             }
         )
-        if len(items) >= max(1, int(limit)):
+        if len(items) >= limit:
             break
     return items
+
+
+NEWS_KEYWORD_ALIASES = {
+    "BTC": ["BTC", "BITCOIN"],
+    "ETH": ["ETH", "ETHEREUM"],
+    "SOL": ["SOL", "SOLANA"],
+    "BNB": ["BNB"],
+    "XRP": ["XRP", "RIPPLE"],
+    "ADA": ["ADA", "CARDANO"],
+    "DOGE": ["DOGE", "DOGECOIN"],
+    "LTC": ["LTC", "LITECOIN"],
+    "TON": ["TON", "TONCOIN"],
+    "AVAX": ["AVAX", "AVALANCHE"],
+    "DOT": ["DOT", "POLKADOT"],
+    "MATIC": ["MATIC", "POLYGON"],
+    "TRX": ["TRX", "TRON"],
+    "LINK": ["LINK", "CHAINLINK"],
+    "BCH": ["BCH", "BITCOIN CASH"],
+}
+
+
+def fetch_recent_news(symbol: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """拉取交易对最近的相关新闻（真实接口，多源聚合）。
+
+    数据源（按序尝试，失败自动降级）：CoinDesk RSS → Cointelegraph RSS → Binance 资讯；
+    按标题去重，并按资产关键词（支持 BTC/Bitcoin 之类的别名）过滤。
+
+    参数：
+    - symbol: 交易对，例如 BTCUSDT
+    - limit: 返回条数
+    """
+    wanted = max(1, int(limit))
+    base = _base_asset(symbol)
+    keywords = NEWS_KEYWORD_ALIASES.get(base, [base.upper()])
+    sources = (
+        ("coindesk", lambda: _fetch_rss_news(
+            "https://www.coindesk.com/arc/outboundfeeds/rss/", "CoinDesk", wanted * 3)),
+        ("cointelegraph", lambda: _fetch_rss_news(
+            "https://cointelegraph.com/rss", "Cointelegraph", wanted * 3)),
+        ("binance", lambda: _fetch_binance_news(wanted)),
+    )
+
+    merged: List[Dict[str, Any]] = []
+    seen = set()
+    errors: List[str] = []
+    raw_count = 0
+    for _name, loader in sources:
+        try:
+            fetched = loader()
+        except Exception as exc:  # noqa: BLE001 - 单源失败降级到下一个
+            errors.append("{0}".format(exc))
+            continue
+        raw_count += len(fetched)
+        for item in fetched:
+            haystack = (item.get("title", "") + " " + item.get("summary", "")).upper()
+            if not any(keyword in haystack for keyword in keywords):
+                continue
+            key = item.get("title", "").lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+            if len(merged) >= wanted:
+                return merged
+
+    if merged:
+        return merged
+    if raw_count:
+        # 所有源可用，但没有命中关键词：退回返回各源最新条目（仍是真实新闻）
+        fallback: List[Dict[str, Any]] = []
+        seen = set()
+        for _name, loader in sources:
+            try:
+                for item in loader():
+                    key = item.get("title", "").lower()
+                    if key and key not in seen:
+                        seen.add(key)
+                        fallback.append(item)
+                    if len(fallback) >= wanted:
+                        return fallback
+            except Exception:  # noqa: BLE001
+                continue
+        if fallback:
+            return fallback
+    raise RuntimeError("新闻接口全部不可用: {0}".format("; ".join(errors)))
 
 
 def build_crypto_tools(include_network: bool = True) -> List[Dict[str, Any]]:
@@ -244,18 +456,26 @@ def build_crypto_tools(include_network: bool = True) -> List[Dict[str, Any]]:
         tools.append(
             {
                 "name": "fetch_daily_candles",
-                "description": "拉取交易对最近的日线收盘价（Binance 公开接口）",
+                "description": "拉取交易对最近的历史日线收盘价（Binance 公开行情接口）",
                 "func": fetch_daily_candles,
             }
         )
         tools.append(
             {
+                "name": "fetch_price_history",
+                "description": "拉取交易对最近的历史日线收盘价（CoinGecko 公开行情接口，备选源）",
+                "func": fetch_price_history,
+            }
+        )
+        tools.append(
+            {
                 "name": "fetch_recent_news",
-                "description": "拉取交易对最近的相关新闻（CoinDesk RSS）",
+                "description": "拉取交易对最近的相关新闻（Binance 资讯 / CoinDesk RSS / Cointelegraph RSS）",
                 "func": fetch_recent_news,
             }
         )
     return tools
+
 
 
 def build_sample_prices(symbol: str = "BTCUSDT", days: int = 60) -> List[float]:
