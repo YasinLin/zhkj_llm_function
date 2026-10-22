@@ -361,8 +361,14 @@ result = await plugin.weather_plan_agent({"city": "杭州"}, tools)
 - 插件：`plugins/crypto_signal_plugin.py`（`crypto_signal_agent`）
 - 外部工具：`examples/crypto_tools.py`
   - `compute_market_stats`：动量 / 年化波动率 / 最大回撤 / RSI / 相对强弱（**确定性统计，不让模型算数**）
-  - `fetch_daily_candles`（Binance 公开 K 线）、`fetch_recent_news`（CoinDesk RSS）：可选联网取数
-- 运行：`.venv\Scripts\python.exe examples\run_crypto_signal.py`（无 API Key 时离线可跑）
+  - `fetch_daily_candles`：**真实行情**（Binance 公开 K 线，主域名失败自动切备用域名）
+  - `fetch_price_history`：**真实行情**备选源（CoinGecko market_chart）
+  - `fetch_recent_news`：**真实新闻**（CoinDesk RSS → Cointelegraph RSS → Binance 资讯，逐个降级、按标题去重、按 BTC/Bitcoin 之类别名过滤）
+  - 全部为公开接口，**无需 API Key**；接口不可用时示例自动降级为内置示例数据并标注来源
+- 运行：`.venv\Scripts\python.exe examples\run_crypto_signal.py`
+  - 环境变量：`LLM_API_KEY`（有则用真实模型，无则用内置假模型走同一套工具链路）、`LLM_MODEL`、`LLM_BASE_URL`、
+    `CRYPTO_SYMBOL`（默认 BTCUSDT）、`CRYPTO_HORIZON`（默认 7 天）、`CRYPTO_POSITION`（none/long/short）
+  - 示例会先打印**数据来源、量化概览、真实新闻标题**，再输出结构化信号
 
 ```python
 result = await plugin.crypto_signal_agent(

@@ -301,6 +301,12 @@ compute_market_stats(symbol, prices, horizon_days, benchmark_prices)
 #   -> momentum_pct / momentum_state / annualized_vol_pct / volatility_state
 #      max_drawdown_pct / rsi14 / drift_pct_per_day / relative_strength_pct
 
+# 1b) 取数：真实公开接口，无需 key，多源自动降级
+fetch_daily_candles(symbol, limit=90)   # Binance 公开 K 线（主 + 备用域名）
+fetch_price_history(symbol, limit=90)   # CoinGecko market_chart（备选源）
+fetch_recent_news(symbol, limit=10)     # CoinDesk RSS → Cointelegraph RSS → Binance 资讯
+#   入参里没数据时，插件规则会要求 agent 先取数再判断
+
 # 2) 规则：写在 docstring（框架转 system prompt）
 #   动量 strong_up/up/down/strong_down × 新闻方向 -> bullish/bearish/neutral
 #   置信度上限：证据不足/背离/高波动 -> <= 0.5；neutral -> <= 0.5

@@ -215,3 +215,49 @@ def test_crypto_signal_agent_end_to_end(fake_litellm):
         "horizon_days",
         "benchmark_prices",
     }
+
+
+def test_tool_list_includes_real_interfaces():
+    from examples.crypto_tools import build_crypto_tools
+
+    names = [tool["name"] for tool in build_crypto_tools(include_network=True)]
+    assert names == [
+        "compute_market_stats",
+        "fetch_daily_candles",
+        "fetch_price_history",
+        "fetch_recent_news",
+    ]
+    offline_names = [tool["name"] for tool in build_crypto_tools(include_network=False)]
+    assert offline_names == ["compute_market_stats"]
+
+
+def test_real_market_data_interface():
+    """真实行情接口（Binance）；网络不可用则跳过。"""
+    from examples.crypto_tools import compute_market_stats, fetch_daily_candles
+
+    try:
+        candles = fetch_daily_candles("BTCUSDT", 30)
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip("Binance 行情接口不可用: {0}".format(exc))
+
+    assert len(candles) >= 20
+    assert set(candles[0]) >= {"date", "open", "high", "low", "close", "volume"}
+    prices = [float(c["close"]) for c in candles]
+    stats = compute_market_stats("BTCUSDT", prices, horizon_days=7)
+    assert stats["count"] == len(prices)
+    assert stats["annualized_vol_pct"] > 0
+
+
+def test_real_news_interface():
+    """真实新闻接口（CoinDesk / Cointelegraph / Binance 聚合）；网络不可用则跳过。"""
+    from examples.crypto_tools import fetch_recent_news
+
+    try:
+        news = fetch_recent_news("BTCUSDT", 5)
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip("新闻接口不可用: {0}".format(exc))
+
+    assert news
+    for item in news:
+        assert item["title"]
+        assert item["source"]
