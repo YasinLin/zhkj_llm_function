@@ -1,7 +1,7 @@
 # zhkj_llm_function · 项目介绍
 
-> 面向 GitHub / 内部分享的对外介绍版；使用细节见 [README.md](README.md)，场景详解见 [USE_CASES.md](USE_CASES.md)。
-> English version: [INTRO_EN.md](INTRO_EN.md) · [README_EN.md](README_EN.md).
+> 面向 GitHub / 内部分享的对外介绍版；使用细节见 [README_CN.md](README_CN.md)（英文版 [README.md](README.md)），场景详解见 [USE_CASES.md](USE_CASES.md)。
+> English version: [INTRO_EN.md](INTRO_EN.md) · [README.md](README.md).
 
 ## 项目简介
 
@@ -11,7 +11,7 @@
 
 ## 一句话
 
-**基于 tinyagent-py 的声明式 Agent 插件框架**：`@agent_def` 声明能力、Pydantic 类型反射入参出参、工具由调用方外置传入，调用拿到手的就是**出参模型实例**。
+**基于 tinyagent-py 的声明式 Agent 插件框架**：`@agent_def` 声明能力、Pydantic 类型反射入参出参、工具由调用方外置传入，调用拿到手的就是**出参模型实例**。内置**加密货币短期分析预测**示例（实时行情 + 新闻舆情 → 方向信号、波动率、风险与失效条件），适合各类**分析预测、舆情监控、报表生成、知识问答**场景。
 
 ```python
 result = await plugin.courier_trace_agent({"waybill_no": "SF1234567890"}, tools)
@@ -39,6 +39,7 @@ result.ok                  # True（代理属性，不污染出参结构）
 - **干净返回值**：`isinstance(result, XXXOutput) == True`，`model_dump()` 与出参签名完全一致，扩展信息在私有属性里。
 - **会话与压缩**：进程内会话按 ttl 复用引擎实例；上下文超阈值自动 `compact()`，压缩失败原因写入 `meta["compact_error"]`。
 - **可测试**：不依赖真实模型，伪造 `litellm.acompletion` 即可端到端跑，CI 稳定。
+- **面向分析预测**：把"取数 → 算指标 → 研判方向 → 输出结构化结论"标准化，模型只做规则化判断，数字与指标全部由工具计算（加密货币短期信号即为此模式）。
 
 ## 架构
 
@@ -118,6 +119,28 @@ result = await plugin.courier_trace_agent({"waybill_no": "SF1234567890"}, tools)
 - 需要**多个业务共用同一套 Agent 能力**、只替换底层数据源（快递、天气、订单、库存……）。
 - 需要**返回值强类型**、能被上层代码直接消费的后端接口。
 - 需要**把 LLM 能力嵌进既有 async 服务**、并要求错误可分类、可观测的团队。
+
+## 场景清单与关键词
+
+框架本身不绑定业务，任何"**取数据 → 按规则判断 → 输出结构化结论**"的任务都能套用。常见落地场景：
+
+| 方向 | 典型任务 | 关键词 |
+| --- | --- | --- |
+| **分析预测** | 结合历史数据与外部信息做趋势研判、给出方向与区间、标注失效条件 | 分析预测、趋势预测、信号生成、方向研判、时间序列预测、预测区间、失效条件、置信度校准 |
+| **加密货币 / 数字资产** | 用历史 K 线与新闻舆情输出短期方向信号、波动率与风险提示 | 加密货币、币价预测、虚拟货币行情、BTC/ETH 行情、数字资产、加密市场分析、链上数据、波动率、RSI、动量、量化指标 |
+| **金融市场** | 股票/商品/外汇的行情摘要、异动归因、持仓风险提示 | 股票分析、行情解读、异动归因、投研辅助、风险提示、组合监控 |
+| **舆情与监控** | 新闻/公告抓取、去重、情绪与主题归类、异常信号聚合 | 舆情分析、新闻抓取、情绪分析、文本分类、信息抽取、主题聚合、告警规则、监控告警 |
+| **数据与报表** | 把异构数据源汇成结构化报表、摘要、看板文案 | 数据分析、报表生成、自动摘要、数据洞察、指标解释、可视化文案 |
+| **知识问答与检索** | 知识库问答、文档检索增强、答案溯源 | 知识库问答、RAG、检索增强、文档问答、答案溯源、智能客服 |
+| **业务自动化** | 跨系统取数→判断→执行→回执的多步任务 | 流程编排、工具调用自动化、工单处理、订单处理、对账、审批预审 |
+| **内容与文档** | 抽取结构化字段、生成草稿、多语言改写、审校 | 文档抽取、信息抽取、摘要生成、内容创作、翻译改写、文本审校、合规检查 |
+| **对话产品** | 多轮会话、上下文延续、意图路由 | 多轮对话、上下文管理、会话记忆、意图识别、对话式接口 |
+| **工程与评测** | 离线可跑的 Agent 回归测试、输出校验、指标采集 | LLM 测试、回归测试、离线评测、结构化输出校验、Prompt 回归、CI 集成、token 统计 |
+
+检索关键词速查：`agent framework`、`declarative agent`、`llm agent`、`agent plugin`、`tool calling`、`function calling`、`structured output`、
+`typed result`、`pydantic schema reflection`、`multi-turn session`、`context compaction`、`llm testing`、
+`predictive analysis`、`time series forecasting`、`crypto price prediction`、`crypto signal`、`news sentiment analysis`、
+`market data analysis`、`anomaly detection`、`report generation`、`rag chatbot`、`workflow automation`。
 
 ## 路线图（规划中）
 

@@ -1,7 +1,7 @@
 # 使用场景详解
 
 本文说明 `zhkj_llm_function` 适合做什么、不适合做什么，每类场景给出可落地的写法与注意事项。
-API 细节见 [README.md](README.md)，对外介绍见 [INTRO.md](INTRO.md)。
+API 细节见 [README_CN.md](README_CN.md)（英文版 [README.md](README.md)），对外介绍见 [INTRO.md](INTRO.md)。
 
 ---
 

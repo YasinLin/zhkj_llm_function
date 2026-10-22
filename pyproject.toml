@@ -5,10 +5,35 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "zhkj_llm_function"
 version = "0.2.0"
-description = "Declarative agent plugin framework on top of tinyagent-py: @agent_def declaration, Pydantic type reflection, injected tools and typed results / 基于 tinyagent-py 的声明式 Agent 插件框架"
+description = "Declarative agent plugin framework on top of tinyagent-py: @agent_def declaration, Pydantic type reflection, injected tools, typed results. Built for analysis and forecasting tasks such as crypto price prediction, news sentiment analysis and report generation / 基于 tinyagent-py 的声明式 Agent 插件框架"
 readme = "README.md"
 requires-python = ">=3.10"
-keywords = ["agent", "llm", "tinyagent", "pydantic", "framework", "plugin"]
+keywords = [
+    "agent",
+    "llm",
+    "agent-framework",
+    "declarative-agent",
+    "agent-plugin",
+    "tinyagent",
+    "pydantic",
+    "plugin",
+    "tool-calling",
+    "function-calling",
+    "structured-output",
+    "predictive-analysis",
+    "forecasting",
+    "time-series",
+    "crypto",
+    "cryptocurrency",
+    "bitcoin",
+    "crypto-price-prediction",
+    "sentiment-analysis",
+    "market-analysis",
+    "report-generation",
+    "rag",
+    "workflow-automation",
+    "llm-testing",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",

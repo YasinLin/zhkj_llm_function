@@ -1,6 +1,6 @@
 # zhkj_llm_function · Project Introduction (English)
 
-> English version. The [中文版项目介绍](INTRO.md) is the primary version; usage details live in [README.md](README.md) / [README_EN.md](README_EN.md), and the scenario guide (Chinese) in [USE_CASES.md](USE_CASES.md).
+> English version. The [中文版项目介绍](INTRO.md) covers the same ground in Chinese; usage details live in [README.md](README.md) / [README_CN.md](README_CN.md), and the scenario guide in [USE_CASES.md](USE_CASES.md).
 
 ## What it is
 
@@ -10,7 +10,7 @@ The framework folds the repetitive glue code of LLM integration (prompt assembly
 
 ## One-liner
 
-**A declarative agent plugin framework on top of tinyagent-py**: declare capabilities with `@agent_def`, reflect input/output from type annotations, inject tools from the caller, and get the **output model instance** back.
+**A declarative agent plugin framework on top of tinyagent-py**: declare capabilities with `@agent_def`, reflect input/output from type annotations, inject tools from the caller, and get the **output model instance** back. Ships with a **crypto short-term analysis & forecasting** example (live market data + news sentiment → directional signal, volatility, risks and invalidation conditions), and fits general **predictive analysis, news/market monitoring, report generation and knowledge-QA** workloads.
 
 ```python
 result = await plugin.courier_trace_agent({"waybill_no": "SF1234567890"}, tools)
@@ -38,6 +38,7 @@ Integrating LLMs into a product repeatedly surfaces the same engineering problem
 - **Clean return values**: `isinstance(result, XXXOutput) == True`, `model_dump()` matches the declared output exactly, and the extra metadata stays in private attributes.
 - **Sessions and compaction**: in-process sessions reuse the engine instance per TTL; the context is compacted automatically and a failure reason is written to `meta["compact_error"]`.
 - **Testability**: no real model required — fake `litellm.acompletion` and the whole path runs end to end, so CI stays stable.
+- **Built for analysis & forecasting**: standardizes "fetch → compute metrics → judge direction → emit a structured conclusion"; the model only applies the rules, and every number is produced by a tool (the crypto short-term signal is exactly this pattern).
 
 ## Architecture
 
@@ -117,6 +118,29 @@ result = await plugin.courier_trace_agent({"waybill_no": "SF1234567890"}, tools)
 - Several businesses need to **share one set of agent capabilities** and only swap the underlying data source (courier, weather, orders, inventory...).
 - You need a **strongly typed return value** that upstream code can consume directly.
 - You need to **embed LLM capabilities into an existing async service** and require classifiable, observable errors.
+
+## Use cases and keywords
+
+The framework is domain-agnostic: any task shaped as "**fetch data → apply rules → emit a structured conclusion**" fits. Common landing areas:
+
+| Area | Typical task | Keywords |
+| --- | --- | --- |
+| **Analysis & forecasting** | Combine history with external context to judge a trend, output a direction and a range, and state the invalidation conditions | predictive analysis, trend forecasting, signal generation, directional call, time-series forecasting, prediction range, invalidation conditions, confidence calibration |
+| **Crypto & digital assets** | Produce a short-term directional signal from candles and news, with volatility and risk notes | crypto, cryptocurrency, bitcoin, BTC, ETH, altcoins, digital assets, crypto price prediction, crypto signal, crypto market analysis, on-chain data, volatility, RSI, momentum, quantitative metrics |
+| **Financial markets** | Summarize quotes, attribute unusual moves, flag portfolio risk | stock analysis, market commentary, price-move attribution, investment research assistant, risk alerts, portfolio monitoring |
+| **News & monitoring** | Crawl, de-duplicate, classify sentiment and topics, aggregate anomaly signals | news crawling, news aggregation, sentiment analysis, text classification, information extraction, topic clustering, alerting rules, monitoring and alerting |
+| **Data & reporting** | Turn heterogeneous sources into structured reports, summaries and dashboard copy | data analysis, report generation, auto summary, data insight, metric explanation, visualization copy |
+| **Knowledge & retrieval** | Knowledge-base Q&A, retrieval-augmented answers with provenance | knowledge base QA, RAG, retrieval augmented generation, document QA, answer grounding, customer support |
+| **Business automation** | Multi-step fetch → decide → act → acknowledge across systems | workflow orchestration, tool-calling automation, ticket handling, order processing, reconciliation, pre-approval review |
+| **Content & documents** | Extract structured fields, draft content, translate and rewrite, proofread | document extraction, information extraction, summarization, content generation, translation and rewriting, proofreading, compliance check |
+| **Conversational products** | Multi-turn sessions, context carry-over, intent routing | multi-turn dialogue, context management, session memory, intent detection, conversational API |
+| **Engineering & evaluation** | Offline agent regression tests, output validation, metric collection | llm testing, regression testing, offline evaluation, structured output validation, prompt regression, CI integration, token accounting |
+
+Search keywords: `agent framework`, `declarative agent`, `llm agent`, `agent plugin`, `tool calling`, `function calling`,
+`structured output`, `typed result`, `pydantic schema reflection`, `multi-turn session`, `context compaction`,
+`llm testing`, `predictive analysis`, `time series forecasting`, `crypto price prediction`, `crypto signal`,
+`news sentiment analysis`, `market data analysis`, `anomaly detection`, `report generation`, `rag chatbot`,
+`workflow automation`.
 
 ## Roadmap (planned)
 
