@@ -1,6 +1,6 @@
 # zhkj_llm_function · 项目介绍
 
-> 面向 GitHub / 内部分享的对外介绍版；使用细节见 [README.md](README.md)。
+> 面向 GitHub / 内部分享的对外介绍版；使用细节见 [README.md](README.md)，场景详解见 [USE_CASES.md](USE_CASES.md)。
 
 ## 项目简介
 

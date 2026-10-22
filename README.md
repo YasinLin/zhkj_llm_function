@@ -5,7 +5,7 @@
 
 包名与导入名一致：`pip install zhkj_llm_function` → `from zhkj_llm_function import ...`。
 
-📄 对外介绍版（痛点、方案、架构、对比、路线图）见 [INTRO.md](INTRO.md)。
+📄 对外介绍版（痛点、方案、架构、对比、路线图）见 [INTRO.md](INTRO.md)；📘 使用场景详解（10 类适用/不适用场景与写法）见 [USE_CASES.md](USE_CASES.md)。
 
 **特点**
 
