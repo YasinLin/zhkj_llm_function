@@ -110,7 +110,7 @@ result = await plugin.courier_trace_agent({"waybill_no": "SF1234567890"}, tools)
 
 - 框架代码约 1150 行（10 个模块），测试约 500 行 / 23 个用例，全部离线可跑。
 - 依赖仅两个：`tinyagent-py`、`pydantic`；Python ≥ 3.10。
-- 已内置示例：快递轨迹查询、结合"明天"天气规划明天行程（Open-Meteo 免费接口）。
+- 已内置示例：快递轨迹查询、结合"明天"天气规划明天行程（Open-Meteo 免费接口）、结合"最近新闻 + 历史涨幅"的加密货币短期信号（量化指标由工具计算）。
 
 ## 适用场景
 

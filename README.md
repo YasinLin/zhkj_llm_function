@@ -356,6 +356,27 @@ result = await plugin.weather_plan_agent({"city": "杭州"}, tools)
 降水概率 ≥ 0.5 或雷暴/雨雪时该时段改为室内；≥ 33℃ 或 ≤ 5℃ 减少户外；按上午/下午/晚上给出 ≥ 3 条行程，
 每条写明天气依据与理由。
 
+### 结合「最近新闻 + 历史涨幅」输出加密货币短期信号
+
+- 插件：`plugins/crypto_signal_plugin.py`（`crypto_signal_agent`）
+- 外部工具：`examples/crypto_tools.py`
+  - `compute_market_stats`：动量 / 年化波动率 / 最大回撤 / RSI / 相对强弱（**确定性统计，不让模型算数**）
+  - `fetch_daily_candles`（Binance 公开 K 线）、`fetch_recent_news`（CoinDesk RSS）：可选联网取数
+- 运行：`.venv\Scripts\python.exe examples\run_crypto_signal.py`（无 API Key 时离线可跑）
+
+```python
+result = await plugin.crypto_signal_agent(
+    {"symbol": "BTCUSDT", "horizon_days": 7, "news": news, "prices": prices},
+    tools,
+)
+# result.signal(bullish/bearish/neutral) / result.confidence / result.expected_move_pct
+# result.volatility_pct / result.key_drivers[] / result.risks[] / result.invalidation_conditions[]
+```
+
+要点：**量化指标全部来自工具**，模型只负责"把规则套到数据 + 组织成结构化信号"；
+判定规则（动量状态 × 新闻方向 → 方向、置信度上限、只能给区间不给点目标、必须给失效条件）全部写在 docstring。
+输出是研究性信号，不构成投资建议。
+
 ## 目录结构
 
 ```

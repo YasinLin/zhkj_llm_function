@@ -289,6 +289,44 @@ plugin = CourierAgentPlugin(
 
 ---
 
+## 附录：市场信号类场景（加密货币短期方向预测）
+
+**适用信号**：需要把「最近新闻 + 历史涨幅」变成一份**结构化、可评审、可留痕**的方向性判断（研究用途）。
+
+**做法**：三段职责分离。
+
+```python
+# 1) 量化：确定性工具算，模型不碰算术
+compute_market_stats(symbol, prices, horizon_days, benchmark_prices)
+#   -> momentum_pct / momentum_state / annualized_vol_pct / volatility_state
+#      max_drawdown_pct / rsi14 / drift_pct_per_day / relative_strength_pct
+
+# 2) 规则：写在 docstring（框架转 system prompt）
+#   动量 strong_up/up/down/strong_down × 新闻方向 -> bullish/bearish/neutral
+#   置信度上限：证据不足/背离/高波动 -> <= 0.5；neutral -> <= 0.5
+#   预期只能给区间（"-x% ~ +y%"），禁止点目标价
+#   必须给 risks 与 invalidation_conditions（可观测、可判定）
+#   必须保留 disclaimer（不构成投资建议）
+
+# 3) 输出：强类型
+result.signal / result.confidence / result.expected_move_pct
+result.volatility_pct / result.key_drivers[] / result.risks[] / result.invalidation_conditions[]
+```
+
+**收益**
+- 数字来源可审计：每个数值都能回溯到工具返回值，不存在"模型算错了"。
+- 判断口径一致：同一份数据，不同人/不同模型跑出的规则判断一致，差异只体现在措辞。
+- 结论自带风控位：`invalidation_conditions` 强制写出"什么情况下这个判断就错了"。
+
+**必须注意**
+- 这类输出是**研究性信号**，不是收益承诺；对外展示务必带免责声明（示例里强制保留）。
+- 新闻情绪 → 价格的映射极不稳定；模型容易把"一条快讯"放大成"趋势"。规则里必须限制置信度上限、并要求引用具体标题。
+- 历史涨幅只描述过去，不构成预测依据；工具返回里已带 `note` 提示，输出中禁止把它写成"未来收益"。
+- 数据不足（价格样本 < 15、无新闻且无法获取）时，规则强制 `neutral + 低置信度 + error_message`，而不是硬凑一个方向。
+- 若要真正可交易，需要在此之上再加：回测框架、样本外验证、仓位与风控约束——**这些都不该由 LLM 负责**。
+
+---
+
 ## 一句话选型建议
 
 > **"我要接一个外部数据源，让模型基于它回答，并且结果要能被下游程序直接消费"** → 用这个框架。
