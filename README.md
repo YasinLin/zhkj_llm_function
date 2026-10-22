@@ -1,5 +1,7 @@
 ﻿# zhkj_llm_function（DeclareAgent 框架 / tinyagent-py 引擎）
 
+[English](README_EN.md) · [中文](README.md) · [Project Intro (EN)](INTRO_EN.md) · [项目介绍（中文）](INTRO.md) · [使用场景详解（中文）](USE_CASES.md)
+
 基于 `@agent_def` 装饰器 + Pydantic 类型注解反射的 Agent 插件框架。
 执行引擎使用 [tinyagent-py](https://pypi.org/project/tinyagent-py/)：ReAct 循环、工具调用、上下文压缩、token 统计。
 

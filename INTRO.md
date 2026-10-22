@@ -1,6 +1,7 @@
 # zhkj_llm_function · 项目介绍
 
 > 面向 GitHub / 内部分享的对外介绍版；使用细节见 [README.md](README.md)，场景详解见 [USE_CASES.md](USE_CASES.md)。
+> English version: [INTRO_EN.md](INTRO_EN.md) · [README_EN.md](README_EN.md).
 
 ## 项目简介
 
@@ -108,7 +109,7 @@ result = await plugin.courier_trace_agent({"waybill_no": "SF1234567890"}, tools)
 
 ## 工程现状
 
-- 框架代码约 1150 行（10 个模块），测试约 500 行 / 23 个用例，全部离线可跑。
+- 框架代码约 1150 行（10 个模块），测试约 500 行 / 29 个用例，全部离线可跑。
 - 依赖仅两个：`tinyagent-py`、`pydantic`；Python ≥ 3.10。
 - 已内置示例：快递轨迹查询、结合"明天"天气规划明天行程（Open-Meteo 免费接口）、结合"最近新闻 + 历史涨幅"的加密货币短期信号（量化指标由工具计算）。
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "zhkj_llm_function"
 version = "0.2.0"
-description = "基于 tinyagent-py 的 DeclareAgent 插件框架：@agent_def 声明 + Pydantic 类型反射 + 统一返回结构"
+description = "Declarative agent plugin framework on top of tinyagent-py: @agent_def declaration, Pydantic type reflection, injected tools and typed results / 基于 tinyagent-py 的声明式 Agent 插件框架"
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["agent", "llm", "tinyagent", "pydantic", "framework", "plugin"]
